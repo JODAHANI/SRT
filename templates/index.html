@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SRT 자동 예매</title>
+  <style>
+    :root {
+      --brand: #c8102e;
+      --brand-dark: #9e0c24;
+      --brand-light: #fde8ec;
+      --gray50: #f9fafb;
+      --gray100: #f3f4f6;
+      --gray200: #e5e7eb;
+      --gray400: #9ca3af;
+      --gray600: #4b5563;
+      --gray900: #111827;
+      --green: #16a34a;
+      --green-bg: #dcfce7;
+      --yellow: #d97706;
+      --yellow-bg: #fef3c7;
+      --red-bg: #fee2e2;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background: var(--gray100);
+      min-height: 100vh;
+      color: var(--gray900);
+    }
+
+    header {
+      background: var(--brand);
+      color: #fff;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 8px rgba(200,16,46,.35);
+    }
+    header .logo   { font-size: 28px; font-weight: 900; letter-spacing: -1px; }
+    header .sub    { font-size: 13px; opacity: .8; }
+
+    main {
+      max-width: 680px;
+      margin: 32px auto;
+      padding: 0 16px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray400);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 14px;
+    }
+
+    /* Direction */
+    .dir-wrap { display: flex; align-items: center; gap: 10px; }
+    .stn-box {
+      flex: 1; text-align: center;
+      border: 2px solid var(--gray200);
+      border-radius: 10px;
+      padding: 14px;
+      transition: border-color .2s;
+    }
+    .stn-box .lbl  { font-size: 11px; color: var(--gray400); margin-bottom: 4px; }
+    .stn-box .name { font-size: 24px; font-weight: 800; }
+    .swap-btn {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: var(--brand);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .2s, transform .3s;
+    }
+    .swap-btn:hover { background: var(--brand-dark); transform: rotate(180deg); }
+
+    /* Date */
+    .date-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .date-btn {
+      border: 2px solid var(--gray200);
+      background: var(--gray50);
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      text-align: center;
+      font-family: inherit;
+      transition: all .2s;
+    }
+    .date-btn .day { font-size: 18px; font-weight: 700; }
+    .date-btn .sub { font-size: 12px; color: var(--gray400); margin-top: 3px; }
+    .date-btn.active { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
+    .date-btn.active .sub { color: var(--brand); }
+
+    /* Date picker */
+    .date-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-top: 1.5px solid var(--gray100);
+      padding-top: 12px;
+    }
+    .date-picker-label {
+      font-size: 12px;
+      color: var(--gray400);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    #date-picker {
+      flex: 1;
+      padding: 10px 12px;
+      border: 2px solid var(--gray200);
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      background: var(--gray50);
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s;
+    }
+    #date-picker:focus  { border-color: var(--brand); }
+    #date-picker.active { border-color: var(--brand); background: var(--brand-light); }
+
+    /* Time */
+    .sel-wrap { position: relative; }
+    .sel-wrap select {
+      width: 100%;
+      padding: 13px 16px;
+      border: 2px solid var(--gray200);
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      background: var(--gray50);
+      appearance: none;
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .sel-wrap select:focus { border-color: var(--brand); }
+    .sel-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 14px; top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--gray400);
+    }
+
+    /* Passengers */
+    .psg-row { display: flex; align-items: center; gap: 16px; font-size: 18px; font-weight: 600; }
+    .psg-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 2px solid var(--gray200);
+      background: var(--gray50);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+      line-height: 1;
+    }
+    .psg-btn:hover { border-color: var(--brand); color: var(--brand); }
+    #psg-count { min-width: 24px; text-align: center; }
+
+    /* Time range */
+    .time-range-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .time-range-item { flex: 1; }
+    .time-range-label {
+      font-size: 11px;
+      color: var(--gray400);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .time-range-dash {
+      font-size: 18px;
+      color: var(--gray400);
+      padding-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    /* Seat type */
+    .seat-row { display: flex; gap: 8px; }
+    .seat-btn {
+      flex: 1; padding: 11px;
+      border: 2px solid var(--gray200);
+      border-radius: 8px;
+      background: var(--gray50);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .seat-btn.active { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
+
+    /* Auto toggle */
+    .toggle-row { display: flex; align-items: center; gap: 12px; }
+    .toggle-info { flex: 1; }
+    .toggle-label { font-size: 14px; font-weight: 600; }
+    .toggle-desc  { font-size: 12px; color: var(--gray400); margin-top: 3px; }
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0;
+      background: var(--gray200);
+      border-radius: 24px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 20px; height: 20px;
+      left: 2px; top: 2px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+      transition: transform .2s;
+    }
+    input:checked + .slider { background: var(--brand); }
+    input:checked + .slider::before { transform: translateX(20px); }
+
+    /* Start button */
+    .start-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      letter-spacing: .3px;
+      transition: background .2s, transform .1s;
+    }
+    .start-btn:hover   { background: var(--brand-dark); }
+    .start-btn:active  { transform: scale(.98); }
+    .start-btn:disabled { background: var(--gray400); cursor: not-allowed; }
+
+    /* Status */
+    #status-box { display: none; }
+    .status-inner {
+      border-radius: 10px;
+      padding: 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .status-inner.running { background: var(--yellow-bg); }
+    .status-inner.success { background: var(--green-bg); }
+    .status-inner.error   { background: var(--red-bg); }
+    .status-inner.stopped { background: var(--gray100); }
+
+    .spinner {
+      width: 22px; height: 22px;
+      border: 2.5px solid rgba(0,0,0,.12);
+      border-top-color: var(--yellow);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status-body { flex: 1; }
+    .status-msg  { font-size: 14px; font-weight: 600; line-height: 1.4; }
+    .status-sub  { font-size: 12px; color: var(--gray600); margin-top: 4px; }
+
+    .stop-btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 7px;
+      background: rgba(0,0,0,.08);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .stop-btn:hover { background: rgba(0,0,0,.15); }
+
+    /* Notice */
+    .notice {
+      background: var(--gray50);
+      border: 1.5px solid var(--gray200);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--gray600);
+      line-height: 1.6;
+    }
+    .notice strong { color: var(--brand); }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--gray900);
+      color: #fff;
+      padding: 11px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: transform .3s;
+      pointer-events: none;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">SRT</div>
+    <div class="sub">실제 사이트 자동 예매 · etk.srail.kr</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Direction -->
+  <div class="card">
+    <div class="card-title">출발 · 도착</div>
+    <div class="dir-wrap">
+      <div class="stn-box">
+        <div class="lbl">출발</div>
+        <div class="name" id="dep-name">수서</div>
+      </div>
+      <button class="swap-btn" id="swap-btn" title="방향 바꾸기">⇄</button>
+      <div class="stn-box">
+        <div class="lbl">도착</div>
+        <div class="name" id="arr-name">부산</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="card">
+    <div class="card-title">날짜</div>
+    <div class="date-grid" style="margin-bottom:12px">
+      <button class="date-btn active" id="btn-today" data-date="{{ today }}">
+        <div class="day">오늘</div>
+        <div class="sub">{{ today_label }}</div>
+      </button>
+      <button class="date-btn" id="btn-tomorrow" data-date="{{ tomorrow }}">
+        <div class="day">내일</div>
+        <div class="sub">{{ tomorrow_label }}</div>
+      </button>
+    </div>
+    <div class="date-picker-wrap">
+      <span class="date-picker-label">직접 선택</span>
+      <input type="date" id="date-picker"
+             min="{{ today[:4] }}-{{ today[4:6] }}-{{ today[6:] }}"
+             value="{{ today[:4] }}-{{ today[4:6] }}-{{ today[6:] }}" />
+    </div>
+  </div>
+
+  <!-- Time range -->
+  <div class="card">
+    <div class="card-title">출발 시각 범위</div>
+    <div class="time-range-row">
+      <div class="time-range-item">
+        <div class="time-range-label">이후 (최소)</div>
+        <div class="sel-wrap">
+          <select id="time-select">
+            <option value="000000">00시 이후</option>
+            <option value="020000">02시 이후</option>
+            <option value="040000">04시 이후</option>
+            <option value="060000">06시 이후</option>
+            <option value="080000">08시 이후</option>
+            <option value="100000">10시 이후</option>
+            <option value="120000">12시 이후</option>
+            <option value="140000">14시 이후</option>
+            <option value="160000">16시 이후</option>
+            <option value="180000">18시 이후</option>
+            <option value="200000" selected>20시 이후</option>
+            <option value="220000">22시 이후</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="time-range-dash">~</div>
+
+      <div class="time-range-item">
+        <div class="time-range-label">이전 (최대)</div>
+        <div class="sel-wrap">
+          <select id="max-time-select">
+            <option value="">제한 없음</option>
+            <option value="020000">02시 이전</option>
+            <option value="040000">04시 이전</option>
+            <option value="060000">06시 이전</option>
+            <option value="080000">08시 이전</option>
+            <option value="100000">10시 이전</option>
+            <option value="120000">12시 이전</option>
+            <option value="140000">14시 이전</option>
+            <option value="160000">16시 이전</option>
+            <option value="180000">18시 이전</option>
+            <option value="200000">20시 이전</option>
+            <option value="220000">22시 이전</option>
+            <option value="240000">24시 이전</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Passengers -->
+  <div class="card">
+    <div class="card-title">인원 (어른)</div>
+    <div class="psg-row">
+      <button class="psg-btn" id="psg-minus">−</button>
+      <span id="psg-count">1</span>명
+      <button class="psg-btn" id="psg-plus">+</button>
+    </div>
+  </div>
+
+  <!-- Seat type + Auto retry -->
+  <div class="card">
+    <div class="card-title">좌석 종류</div>
+    <div class="seat-row" style="margin-bottom:20px">
+      <button class="seat-btn active" data-type="일반">일반실</button>
+      <button class="seat-btn" data-type="특실">특실</button>
+    </div>
+
+    <div class="toggle-row" style="margin-bottom:14px">
+      <div class="toggle-info">
+        <div class="toggle-label">자동 재시도</div>
+        <div class="toggle-desc">매진 시 자동으로 재조회 · 예매</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="auto-toggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">브라우저 창 숨기기</div>
+        <div class="toggle-desc">백그라운드로 실행 (화면 안 보임)</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="headless-toggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Start -->
+  <button class="start-btn" id="start-btn">자동 예매 시작</button>
+
+  <!-- Notice -->
+  <div class="notice">
+    <strong>안내</strong> — 예매 성공 시 텔레그램으로 알림이 발송됩니다.<br>
+    예매 버튼 클릭 후 <strong>결제는 직접</strong> 브라우저에서 진행하세요.<br>
+    브라우저 창 숨김 시 결제 창도 백그라운드에 열리므로 작업표시줄에서 확인하세요.
+  </div>
+
+  <!-- Status -->
+  <div id="status-box">
+    <div class="status-inner running" id="status-inner">
+      <div class="spinner" id="spinner"></div>
+      <div class="status-body">
+        <div class="status-msg" id="status-msg">시작 중...</div>
+        <div class="status-sub" id="status-sub"></div>
+      </div>
+      <button class="stop-btn" id="stop-btn" style="display:none">중단</button>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+  let dep = "수서", arr = "부산";
+  let selectedDate = "{{ today }}";
+  let seatType = "일반";
+  let adults = 1;
+  let jobId = null;
+  let pollId = null;
+
+  // Direction swap
+  document.getElementById("swap-btn").addEventListener("click", () => {
+    [dep, arr] = [arr, dep];
+    document.getElementById("dep-name").textContent = dep;
+    document.getElementById("arr-name").textContent = arr;
+  });
+
+  // Date — 오늘/내일 버튼
+  document.querySelectorAll(".date-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".date-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      selectedDate = btn.dataset.date;
+      // 달력도 같이 업데이트
+      const picker = document.getElementById("date-picker");
+      picker.value = selectedDate.slice(0,4)+"-"+selectedDate.slice(4,6)+"-"+selectedDate.slice(6,8);
+      picker.classList.remove("active");
+    });
+  });
+
+  // Date — 달력 직접 선택
+  document.getElementById("date-picker").addEventListener("change", function() {
+    const val = this.value;   // "2026-05-03"
+    if (!val) return;
+    selectedDate = val.replace(/-/g, "");   // "20260503"
+    // 오늘/내일 버튼 해제
+    document.querySelectorAll(".date-btn").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+  });
+
+  // Seat type
+  document.querySelectorAll(".seat-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".seat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      seatType = btn.dataset.type;
+    });
+  });
+
+  // Passengers
+  document.getElementById("psg-minus").addEventListener("click", () => {
+    if (adults > 1) { adults--; document.getElementById("psg-count").textContent = adults; }
+  });
+  document.getElementById("psg-plus").addEventListener("click", () => {
+    if (adults < 9) { adults++; document.getElementById("psg-count").textContent = adults; }
+  });
+
+  // 버튼 텍스트: headless 상태에 따라 동적
+  function getBtnText() {
+    return document.getElementById("headless-toggle").checked
+      ? "백그라운드 자동 예매 시작"
+      : "자동 예매 시작";
+  }
+
+  document.getElementById("headless-toggle").addEventListener("change", () => {
+    const btn = document.getElementById("start-btn");
+    if (!btn.disabled) btn.textContent = getBtnText();
+  });
+
+  // Start
+  document.getElementById("start-btn").addEventListener("click", startJob);
+
+  async function startJob() {
+    const timeVal    = document.getElementById("time-select").value;
+    const maxTimeVal = document.getElementById("max-time-select").value;
+    const autoRetry = document.getElementById("auto-toggle").checked;
+    const btn       = document.getElementById("start-btn");
+
+    btn.disabled = true;
+    btn.textContent = "브라우저 실행 중...";
+    showStatus("running", "Chromium 브라우저 시작 중...", "");
+
+    if (pollId) clearInterval(pollId);
+
+    // Stop previous job
+    if (jobId) {
+      await fetch(`/api/job/${jobId}/stop`, { method: "POST" });
+      jobId = null;
+    }
+
+    try {
+      const res = await fetch("/api/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dep, arr, date: selectedDate, time_val: timeVal, max_time_val: maxTimeVal, seat_type: seatType, auto_retry: autoRetry, adults, headless: document.getElementById("headless-toggle").checked }),
+      });
+      const data = await res.json();
+      jobId = data.job_id;
+
+      document.getElementById("stop-btn").style.display = "block";
+      document.getElementById("stop-btn").onclick = stopJob;
+
+      pollId = setInterval(poll, 1200);
+    } catch (e) {
+      showStatus("error", "서버 오류: " + e.message, "");
+      btn.disabled = false;
+      btn.textContent = getBtnText();
+    }
+  }
+
+  async function poll() {
+    if (!jobId) return;
+    try {
+      const res  = await fetch(`/api/job/${jobId}`);
+      const data = await res.json();
+
+      const sub = data.attempts ? `${data.attempts}회 시도` : "";
+      showStatus(data.status === "running" ? "running" : data.status, data.message, sub);
+
+      if (data.status !== "running") {
+        clearInterval(pollId);
+        jobId = null;
+        const btn = document.getElementById("start-btn");
+        btn.disabled = false;
+        btn.textContent = getBtnText();
+        document.getElementById("stop-btn").style.display = "none";
+
+        if (data.status === "success") toast("🎉 " + data.message);
+        else if (data.status === "error") toast("❌ " + data.message);
+      }
+    } catch (_) {}
+  }
+
+  async function stopJob() {
+    if (!jobId) return;
+    clearInterval(pollId);
+    await fetch(`/api/job/${jobId}/stop`, { method: "POST" });
+    jobId = null;
+    showStatus("stopped", "중단됨", "");
+    document.getElementById("stop-btn").style.display = "none";
+    const btn = document.getElementById("start-btn");
+    btn.disabled = false;
+    btn.textContent = getBtnText();
+  }
+
+  function showStatus(state, msg, sub) {
+    const box    = document.getElementById("status-box");
+    const inner  = document.getElementById("status-inner");
+    const msgEl  = document.getElementById("status-msg");
+    const subEl  = document.getElementById("status-sub");
+    const spin   = document.getElementById("spinner");
+
+    box.style.display = "block";
+    inner.className = "status-inner " + (state === "running" ? "running" : state);
+    const icons = { success: "✅ ", error: "❌ ", stopped: "⏹ ", running: "" };
+    msgEl.textContent = (icons[state] || "") + msg;
+    subEl.textContent = sub || "";
+    spin.style.display = state === "running" ? "block" : "none";
+  }
+
+  function toast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 4000);
+  }
+</script>
+</body>
+</html>
